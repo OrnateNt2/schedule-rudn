@@ -5,4 +5,4 @@ services:
     build: .
     restart: always  # Перезапуск при падении
     environment:
-      - TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+      - TELEGRAM_BOT_TOKEN=7914679473:AAHbXTm3vxuS013LM013k9-hLNYVDoQmD4A
