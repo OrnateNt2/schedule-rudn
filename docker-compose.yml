@@ -3,6 +3,5 @@ version: "3.8"
 services:
   bot:
     build: .
-    restart: always  # Перезапуск при падении
-    environment:
-      - TELEGRAM_BOT_TOKEN=7914679473:AAHbXTm3vxuS013LM013k9-hLNYVDoQmD4A
+    restart: always  # Авто-перезапуск
+    env_file: .env   # Загружаем переменные окружения из .env
