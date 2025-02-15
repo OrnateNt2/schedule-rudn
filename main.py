@@ -141,7 +141,7 @@ def get_formatted_schedule_text(day_code: str, target_date: date, force_week_typ
     """
     if force_week_type is None:
         week_number = target_date.isocalendar()[1]
-        is_even = (week_number % 2 == 0)
+        is_even = (week_number % 2 == 1)
         used_week_type = "even" if is_even else "odd"
         week_label = "верхняя" if is_even else "нижняя"
     else:
