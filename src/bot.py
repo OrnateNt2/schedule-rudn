@@ -1,6 +1,6 @@
 # src/bot.py
 import logging
-from telegram.ext import ApplicationBuilder, JobQueue  # Импортируем JobQueue
+from telegram.ext import ApplicationBuilder, JobQueue
 from config import BOT_TOKEN
 from handlers.start_handler import start_handler
 from handlers.schedule_handler import (
@@ -17,19 +17,19 @@ logging.basicConfig(
 )
 
 def main():
-    # Инициализируем кэш сразу при запуске (чтобы распарсить Excel)
+    # Инициализируем кэш (Excel)
     init_cache()
 
     # Создаем приложение
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Явно создаём и связываем JobQueue
+    # Создаем и запускаем JobQueue вручную
     job_queue = JobQueue()
     job_queue.set_application(application)
     job_queue.start()  # Запускаем очередь задач
-    application.job_queue = job_queue  # Привязываем её к приложению
+    application.job_queue = job_queue  # (на всякий случай)
 
-    # Регистрируем хендлеры команд
+    # Регистрируем обработчики
     application.add_handler(start_handler)
     application.add_handler(today_handler)
     application.add_handler(tomorrow_handler)
@@ -40,8 +40,8 @@ def main():
     application.add_handler(subscribe_handler)
     application.add_handler(unsubscribe_handler)
 
-    # Настраиваем ежедневные уведомления (если нужно)
-    schedule_jobs(application.job_queue)
+    # Передаем созданный job_queue напрямую в schedule_jobs
+    schedule_jobs(job_queue)
 
     # Запускаем бота
     application.run_polling()
