@@ -16,16 +16,16 @@ def process_lesson_cell(cell):
     Обрабатывает ячейку урока и возвращает список записей.
     Каждая запись – словарь с:
       - text: текст урока
-      - program: "ФГОС" или "МП", если найдено, иначе None
-      - is_language: True, если в тексте есть слово "язык"
-      - cell_color: "blue" или "green" или "default"
+      - program: "ФГОС" или "МП" (если найдено), иначе None
+      - is_language: True, если в тексте встречается слово "язык"
+      - cell_color: "blue" или "green" (определяется по RGB)
     """
     text = cell.value
     if text is None:
         return []
     text = str(text).strip()
 
-    # Определяем цвет ячейки по значению RGB
+    # Определяем цвет ячейки
     color_rgb = cell.fill.fgColor.rgb
     cell_color = "default"
     if color_rgb:
@@ -40,7 +40,7 @@ def process_lesson_cell(cell):
         else:
             cell_color = "default"
 
-    # Если в ячейке несколько вариантов, разделённых "|", разбиваем
+    # Если вариантов несколько, разделённых "|"
     parts = text.split("|")
     entries = []
     for part in parts:
@@ -64,32 +64,44 @@ def parse_schedule(excel_path: str):
     wb = openpyxl.load_workbook(excel_path)
     sheet = wb.active
 
-    # Считываем названия групп из 4-й строки (E4..S4)
+    # Считываем группы из 4-й строки (колонки E...S)
     group_names = {}
-    for col_idx in range(5, 20):  # E=5, ..., S=19
+    last_value = None
+    for col_idx in range(5, 20):  # E=5, ..., S=19 (15 колонок)
         cell_value = sheet.cell(row=4, column=col_idx).value
-        print(f"DEBUG: col={col_idx} -> group_name='{cell_value}'")
         if cell_value:
-            group_names[col_idx] = str(cell_value).strip()
+            last_value = str(cell_value).strip()
+            group_names[col_idx] = last_value
+        else:
+            group_names[col_idx] = last_value  # если пустая, используем предыдущую
+
+        print(f"DEBUG: col={col_idx} -> group_name='{group_names[col_idx]}'")
 
     # Инициализируем структуру: schedule_data[group][day] = список уроков
     schedule_data = {}
-    for col_idx, group_name in group_names.items():
-        schedule_data[group_name] = {day: [] for day in DAY_RANGES}
+    for col_idx, group in group_names.items():
+        # Если в результате получился None – пропускаем
+        if group is None:
+            continue
+        # Если одна и та же группа повторяется в нескольких колонках, оставляем одно значение
+        if group not in schedule_data:
+            schedule_data[group] = {day: [] for day in DAY_RANGES}
 
+    # Проходим по дням и строкам
     for day, rows in DAY_RANGES.items():
         for row in rows:
             time_cell = sheet.cell(row=row, column=4)  # время занятий в столбце D
-            time_cell_value = time_cell.value
-            if not time_cell_value:
+            time_val = time_cell.value
+            if not time_val:
                 continue
-            time_text = str(time_cell_value).strip()
-
-            for col_idx, group_name in group_names.items():
+            time_text = str(time_val).strip()
+            for col_idx, group in group_names.items():
+                if group is None:
+                    continue
                 cell = sheet.cell(row=row, column=col_idx)
                 entries = process_lesson_cell(cell)
                 if entries:
-                    schedule_data[group_name][day].append({
+                    schedule_data[group][day].append({
                         "time": time_text,
                         "entries": entries
                     })

@@ -18,12 +18,6 @@ def get_all_groups():
     return list(_schedule_cache.keys())
 
 def get_schedule_for_day(group: str, day: int, program: str = None, language: str = None) -> str:
-    """
-    Возвращает отфильтрованное расписание для группы и дня.
-    Фильтрация:
-      - Если у записи указан параметр программы и он не совпадает с выбранным, запись исключается.
-      - Для зелёных ячеек (выбор языка) запись выводится только если выбранный язык содержится в тексте.
-    """
     if _schedule_cache is None:
         init_cache()
 
@@ -38,10 +32,10 @@ def get_schedule_for_day(group: str, day: int, program: str = None, language: st
     for lesson in lessons:
         filtered_entries = []
         for entry in lesson.get("entries", []):
-            # Если запись содержит метку программы и она не совпадает с выбором пользователя, пропускаем
+            # Если запись содержит метку программы и она не совпадает – пропускаем
             if program and entry.get("program") and entry["program"] != program:
                 continue
-            # Для зелёных ячеек с выбором языка – включаем только если выбранный язык содержится в тексте
+            # Для зелёных ячеек с языками: выводим только если выбранный язык присутствует
             if entry.get("cell_color") == "green" and entry.get("is_language"):
                 if language:
                     if language.lower() not in entry["text"].lower():
@@ -51,9 +45,7 @@ def get_schedule_for_day(group: str, day: int, program: str = None, language: st
             filtered_entries.append(entry["text"])
         if filtered_entries:
             output_lines.append(f"{lesson['time']}: " + "; ".join(filtered_entries))
-    if not output_lines:
-        return "На этот день нет занятий."
-    return "\n".join(output_lines)
+    return "\n".join(output_lines) if output_lines else "На этот день нет занятий."
 
 def get_schedule_for_week(group: str, program: str = None, language: str = None) -> dict:
     if _schedule_cache is None:
@@ -80,16 +72,14 @@ def get_schedule_for_week(group: str, program: str = None, language: str = None)
                 filtered_entries.append(entry["text"])
             if filtered_entries:
                 output_lines.append(f"{lesson['time']}: " + "; ".join(filtered_entries))
-        if output_lines:
-            result[day] = "\n".join(output_lines)
-        else:
-            result[day] = "На этот день нет занятий."
+        result[day] = "\n".join(output_lines) if output_lines else "На этот день нет занятий."
     return result
 
 def get_available_languages(group: str, program: str = None) -> list:
     """
-    Сканирует все уроки для группы и ищет зелёные ячейки с текстом, содержащим "язык".
-    Извлекает язык как текст до слова "язык". Если задан program, фильтрует по нему.
+    Сканирует расписание для группы и возвращает список языков,
+    найденных в зелёных ячейках с текстом, содержащим слово "язык".
+    Если задан program, фильтрует по нему.
     """
     if _schedule_cache is None:
         init_cache()
@@ -101,8 +91,7 @@ def get_available_languages(group: str, program: str = None) -> list:
         for lesson in lessons:
             for entry in lesson.get("entries", []):
                 if entry.get("cell_color") == "green" and entry.get("is_language"):
-                    entry_program = entry.get("program")
-                    if program and entry_program and entry_program != program:
+                    if program and entry.get("program") and entry["program"] != program:
                         continue
                     match = re.search(r"(.+?)\s*язык", entry["text"], re.IGNORECASE)
                     if match:
