@@ -20,11 +20,11 @@ def main():
     # Создаем приложение
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Явно создаем JobQueue и запускаем ее
+    # Явно создаем JobQueue и запускаем её
     job_queue = JobQueue()
     job_queue.set_application(application)
     job_queue.start()
-
+    
     # Регистрируем обработчики команд
     application.add_handler(start_handler)
     application.add_handler(today_handler)
@@ -36,7 +36,7 @@ def main():
     application.add_handler(subscribe_handler)
     application.add_handler(unsubscribe_handler)
 
-    # Запускаем задачу оповещения, передавая созданный job_queue
+    # Передаем созданный job_queue напрямую в schedule_jobs (а не application.job_queue)
     schedule_jobs(job_queue)
 
     # Запускаем бота
