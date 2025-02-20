@@ -1,11 +1,8 @@
-# src/bot.py
 import logging
 from telegram.ext import ApplicationBuilder, JobQueue
 from config import BOT_TOKEN
 from handlers.start_handler import start_handler
-from handlers.schedule_handler import (
-    today_handler, tomorrow_handler, week_handler, week_callback_handler
-)
+from handlers.schedule_handler import today_handler, tomorrow_handler, week_handler, week_callback_handler
 from handlers.settings_handler import settings_handler, settings_callback_handler
 from handlers.subscribe_handler import subscribe_handler, unsubscribe_handler
 from services.notification import schedule_jobs
@@ -17,18 +14,18 @@ logging.basicConfig(
 )
 
 def main():
-    # Инициализируем кэш (чтобы распарсить Excel)
+    # Инициализируем кэш (например, парсинг Excel)
     init_cache()
 
-    # Создаем приложение без post_init
+    # Создаем приложение
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Явно создаём JobQueue и запускаем её
+    # Явно создаем JobQueue и запускаем ее
     job_queue = JobQueue()
     job_queue.set_application(application)
     job_queue.start()
-    
-    # Регистрируем хендлеры
+
+    # Регистрируем обработчики команд
     application.add_handler(start_handler)
     application.add_handler(today_handler)
     application.add_handler(tomorrow_handler)
@@ -39,7 +36,7 @@ def main():
     application.add_handler(subscribe_handler)
     application.add_handler(unsubscribe_handler)
 
-    # Передаем созданный job_queue напрямую в schedule_jobs
+    # Запускаем задачу оповещения, передавая созданный job_queue
     schedule_jobs(job_queue)
 
     # Запускаем бота
