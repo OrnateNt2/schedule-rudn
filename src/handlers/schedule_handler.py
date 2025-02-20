@@ -4,6 +4,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler
 from utils.json_db import get_user_group, get_user_program, get_user_language
 from services.cache import get_schedule_for_day, get_schedule_for_week
+from config import CURRENT_WEEK  # Импортируем текущую неделю
 
 DAY_NAMES = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"]
 
@@ -23,6 +24,30 @@ async def today_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     schedule_text = get_schedule_for_day(group, weekday, program=program, language=language)
     await update.message.reply_text(schedule_text)
+
+async def week_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    group = get_user_group(user_id)
+    program = get_user_program(user_id)
+    language = get_user_language(user_id)
+    if not group:
+        await update.message.reply_text("Сначала выберите группу, программу и язык в /settings.")
+        return
+
+    schedule_week = get_schedule_for_week(group, program=program, language=language)
+    context.user_data["week_day_index"] = 0
+    day_index = context.user_data["week_day_index"]
+    day_name = DAY_NAMES[day_index]
+    week_info = f"Текущая неделя: {'Верхняя' if CURRENT_WEEK == 'upper' else 'Нижняя'}\n"
+    text = f"{week_info}Расписание для группы {group}\n\n{day_name}:\n{schedule_week.get(day_index, 'На этот день нет занятий.')}"
+    keyboard = [
+        [
+            InlineKeyboardButton("← Пред.", callback_data="week_prev"),
+            InlineKeyboardButton("След. →", callback_data="week_next")
+        ]
+    ]
+    markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(text, reply_markup=markup)
 
 async def tomorrow_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
