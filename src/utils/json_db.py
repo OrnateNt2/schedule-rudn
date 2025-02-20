@@ -24,7 +24,9 @@ def add_user_if_not_exists(user_id):
         users[str_user_id] = {
             "group": None,
             "notification_time": None,
-            "subscribed": False
+            "subscribed": False,
+            "program": None,   # "ФГОС" или "МП"
+            "language": None   # выбранный язык
         }
         save_users(users)
 
@@ -58,3 +60,29 @@ def set_user_subscribe_status(user_id, status: bool):
         users = load_users()
     users[str_user_id]["subscribed"] = status
     save_users(users)
+
+def set_user_program(user_id, program):
+    users = load_users()
+    str_user_id = str(user_id)
+    if str_user_id not in users:
+        add_user_if_not_exists(user_id)
+        users = load_users()
+    users[str_user_id]["program"] = program
+    save_users(users)
+
+def set_user_language(user_id, language):
+    users = load_users()
+    str_user_id = str(user_id)
+    if str_user_id not in users:
+        add_user_if_not_exists(user_id)
+        users = load_users()
+    users[str_user_id]["language"] = language
+    save_users(users)
+
+def get_user_program(user_id):
+    users = load_users()
+    return users.get(str(user_id), {}).get("program")
+
+def get_user_language(user_id):
+    users = load_users()
+    return users.get(str(user_id), {}).get("language")
