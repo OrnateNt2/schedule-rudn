@@ -20,7 +20,7 @@ def main():
     # Инициализируем кэш сразу при запуске (чтобы распарсить Excel)
     init_cache()
 
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    application = ApplicationBuilder().token(BOT_TOKEN).post_init(lambda app: setattr(app, 'job_queue', app.job_queue)).build()
 
     # Регистрируем хендлеры команд
     application.add_handler(start_handler)

@@ -9,4 +9,5 @@ services:
       - .env
     volumes:
       - ./data:/app/data
+    working_dir: /app
     command: python src/bot.py
