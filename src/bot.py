@@ -17,19 +17,18 @@ logging.basicConfig(
 )
 
 def main():
-    # Инициализируем кэш (Excel)
+    # Инициализируем кэш (чтобы распарсить Excel)
     init_cache()
 
-    # Создаем приложение
+    # Создаем приложение без post_init
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Создаем и запускаем JobQueue вручную
+    # Явно создаём JobQueue и запускаем её
     job_queue = JobQueue()
     job_queue.set_application(application)
-    job_queue.start()  # Запускаем очередь задач
-    application.job_queue = job_queue  # (на всякий случай)
-
-    # Регистрируем обработчики
+    job_queue.start()
+    
+    # Регистрируем хендлеры
     application.add_handler(start_handler)
     application.add_handler(today_handler)
     application.add_handler(tomorrow_handler)
