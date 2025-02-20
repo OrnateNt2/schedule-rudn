@@ -1,6 +1,6 @@
 # src/bot.py
 import logging
-from telegram.ext import ApplicationBuilder
+from telegram.ext import ApplicationBuilder, JobQueue  # Импортируем JobQueue
 from config import BOT_TOKEN
 from handlers.start_handler import start_handler
 from handlers.schedule_handler import (
@@ -20,7 +20,14 @@ def main():
     # Инициализируем кэш сразу при запуске (чтобы распарсить Excel)
     init_cache()
 
-    application = ApplicationBuilder().token(BOT_TOKEN).post_init(lambda app: setattr(app, 'job_queue', app.job_queue)).build()
+    # Создаем приложение
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    # Явно создаём и связываем JobQueue
+    job_queue = JobQueue()
+    job_queue.set_application(application)
+    job_queue.start()  # Запускаем очередь задач
+    application.job_queue = job_queue  # Привязываем её к приложению
 
     # Регистрируем хендлеры команд
     application.add_handler(start_handler)
