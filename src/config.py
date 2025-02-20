@@ -5,5 +5,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BOT_TOKEN = os.getenv('TOKEN', 'YOUR_DEFAULT_TOKEN')
-# Укажите, какая неделя сейчас активна: "upper" (верхняя) или "lower" (нижняя)
-CURRENT_WEEK = os.getenv('CURRENT_WEEK', 'upper').lower()
+# CURRENT_WEEK_PARITY = "even" означает: если номер недели чётный → верхняя, иначе нижняя.
+# Если "odd", то наоборот.
+CURRENT_WEEK_PARITY = os.getenv('CURRENT_WEEK_PARITY', 'even').lower()
