@@ -61,6 +61,10 @@ def set_user_subscribe_status(user_id, status: bool):
     users[str_user_id]["subscribed"] = status
     save_users(users)
 
+def get_user_notification_time(user_id):
+    users = load_users()
+    return users.get(str(user_id), {}).get("notification_time")
+
 def set_user_program(user_id, program):
     users = load_users()
     str_user_id = str(user_id)
