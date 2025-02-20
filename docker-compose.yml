@@ -1,7 +1,0 @@
-version: "3.8"
-
-services:
-  bot:
-    build: .
-    restart: always  # Авто-перезапуск
-    env_file: .env   # Загружаем переменные окружения из .env
