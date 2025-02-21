@@ -1,8 +1,8 @@
-# src/services/cache.py
 import os
 from services.parser import parse_schedule
+import datetime
+from config import CURRENT_WEEK_PARITY  # например, "even" или "odd"
 
-# Глобальный кэш расписаний: ключ – номер курса (строкой), значение – данные расписания (словарь)
 schedule_cache = {}
 
 def init_cache_for_course(course):
@@ -19,10 +19,38 @@ def init_cache():
     """
     init_cache_for_course("1")
 
+def get_current_week_type():
+    """
+    Вычисляет текущую неделю.
+    Если CURRENT_WEEK_PARITY == "even": чётные недели – верхние, нечётные – нижние.
+    Если "odd": наоборот.
+    """
+    week_num = datetime.date.today().isocalendar()[1]
+    if CURRENT_WEEK_PARITY.lower() == "even":
+        return "upper" if week_num % 2 == 0 else "lower"
+    else:
+        return "upper" if week_num % 2 == 1 else "lower"
+
+def get_next_week_type():
+    """
+    Возвращает тип следующей недели, инвертируя текущий.
+    """
+    current = get_current_week_type()
+    return "lower" if current == "upper" else "upper"
+
+def process_entry_by_week(entry_text: str, week_type: str) -> str:
+    """
+    Если в тексте присутствует разделитель '/', возвращает левую часть для верхней недели и правую для нижней.
+    """
+    if "/" in entry_text:
+        parts = entry_text.split("/", 1)
+        return parts[0].strip() if week_type == "upper" else parts[1].strip()
+    return entry_text
+
 def get_all_groups(course=None):
     """
-    Возвращает список групп, найденных в расписании.
-    Если course не указан, по умолчанию используется курс "1".
+    Возвращает список групп, найденных в расписании для указанного курса.
+    Если курс не указан, по умолчанию используется "1".
     """
     if course is None:
         course = "1"
@@ -33,11 +61,14 @@ def get_all_groups(course=None):
     schedule_data = schedule_cache.get(course)
     return list(schedule_data.keys()) if schedule_data else []
 
-def get_schedule_for_day(group: str, day: int, course, program: str = None, language: str = None) -> str:
+def get_schedule_for_day(group: str, day: int, course, program: str = None, language: str = None, week_type: str = None) -> str:
     """
     Возвращает расписание на заданный день для указанной группы и курса.
-    Если заданы фильтры по программе или языку, они учитываются.
+    Если week_type не указан, используется текущая неделя.
+    Фильтрует по программе и языку.
     """
+    if week_type is None:
+        week_type = get_current_week_type()
     course = str(course)
     if course not in schedule_cache:
         init_cache_for_course(course)
@@ -59,17 +90,20 @@ def get_schedule_for_day(group: str, day: int, course, program: str = None, lang
                         continue
                 else:
                     continue
-            processed_text = entry["text"]
+            processed_text = process_entry_by_week(entry["text"], week_type)
             filtered_entries.append(processed_text)
         if filtered_entries:
             time_text = lesson["time"].replace('.', ':')
             output_lines.append(f"{lesson.get('number')}. {time_text}: " + "; ".join(filtered_entries))
     return "\n".join(output_lines) if output_lines else "На этот день нет занятий."
 
-def get_schedule_for_week(group: str, course, program: str = None, language: str = None) -> dict:
+def get_schedule_for_week(group: str, course, program: str = None, language: str = None, week_type: str = None) -> dict:
     """
-    Возвращает расписание на всю неделю (0-5) для указанной группы и курса.
+    Возвращает расписание на всю неделю (0–5) для указанной группы и курса.
+    Если week_type не указан, используется текущая неделя.
     """
+    if week_type is None:
+        week_type = get_current_week_type()
     course = str(course)
     if course not in schedule_cache:
         init_cache_for_course(course)
@@ -91,7 +125,7 @@ def get_schedule_for_week(group: str, course, program: str = None, language: str
                             continue
                     else:
                         continue
-                processed_text = entry["text"]
+                processed_text = process_entry_by_week(entry["text"], week_type)
                 filtered_entries.append(processed_text)
             if filtered_entries:
                 time_text = lesson["time"].replace('.', ':')
@@ -103,7 +137,6 @@ def get_available_languages(group: str, course, program: str = None) -> list:
     """
     Сканирует расписание для указанной группы и курса и возвращает список языков,
     найденных в зелёных ячейках с текстом, содержащим слово "язык".
-    Если задан фильтр по программе, учитывается он.
     """
     course = str(course)
     if course not in schedule_cache:
