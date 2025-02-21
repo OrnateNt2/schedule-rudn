@@ -2,56 +2,71 @@
 import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler
-from utils.json_db import get_user_group, get_user_program, get_user_language
-from services.cache import get_schedule_for_day, get_schedule_for_week, get_current_week_type
+from utils.json_db import get_user_group, get_user_course, get_user_program, get_user_language
+from services.cache import get_schedule_for_day, get_schedule_for_week
 
 DAY_NAMES = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"]
 
 async def today_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     group = get_user_group(user_id)
+    course = get_user_course(user_id)
     program = get_user_program(user_id)
     language = get_user_language(user_id)
-    if not group:
-        await update.message.reply_text("Сначала выберите группу, программу и язык в /settings.")
+    if not course:
+        await update.message.reply_text("Сначала выберите ваш курс, используя /start.")
         return
+    if not group:
+        await update.message.reply_text("Сначала выберите группу и другие настройки в /settings.")
+        return
+
     weekday = datetime.datetime.now().weekday()
     if weekday > 5:
         await update.message.reply_text("Сегодня выходной.")
         return
-    schedule_text = get_schedule_for_day(group, weekday, program=program, language=language)
+
+    schedule_text = get_schedule_for_day(group, weekday, course, program=program, language=language)
     await update.message.reply_text(schedule_text)
 
 async def tomorrow_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     group = get_user_group(user_id)
+    course = get_user_course(user_id)
     program = get_user_program(user_id)
     language = get_user_language(user_id)
-    if not group:
-        await update.message.reply_text("Сначала выберите группу, программу и язык в /settings.")
+    if not course:
+        await update.message.reply_text("Сначала выберите ваш курс, используя /start.")
         return
+    if not group:
+        await update.message.reply_text("Сначала выберите группу и другие настройки в /settings.")
+        return
+
     weekday = datetime.datetime.now().weekday() + 1
     if weekday > 5:
         await update.message.reply_text("Завтра выходной.")
         return
-    schedule_text = get_schedule_for_day(group, weekday, program=program, language=language)
+
+    schedule_text = get_schedule_for_day(group, weekday, course, program=program, language=language)
     await update.message.reply_text(schedule_text)
 
 async def week_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     group = get_user_group(user_id)
+    course = get_user_course(user_id)
     program = get_user_program(user_id)
     language = get_user_language(user_id)
-    if not group:
-        await update.message.reply_text("Сначала выберите группу, программу и язык в /settings.")
+    if not course:
+        await update.message.reply_text("Сначала выберите ваш курс, используя /start.")
         return
-    schedule_week = get_schedule_for_week(group, program=program, language=language)
+    if not group:
+        await update.message.reply_text("Сначала выберите группу и другие настройки в /settings.")
+        return
+
+    schedule_week = get_schedule_for_week(group, course, program=program, language=language)
     context.user_data["week_day_index"] = 0
     day_index = context.user_data["week_day_index"]
     day_name = DAY_NAMES[day_index]
-    current_week_type = get_current_week_type()
-    week_info = f"Текущая неделя: {'Верхняя' if current_week_type=='upper' else 'Нижняя'}\n"
-    text = f"{week_info}Расписание для группы {group}\n\n{day_name}:\n{schedule_week.get(day_index, 'На этот день нет занятий.')}"
+    text = f"Расписание для группы {group} (курс {course})\n\n{day_name}:\n{schedule_week.get(day_index, 'На этот день нет занятий.')}"
     keyboard = [
         [
             InlineKeyboardButton("← Пред.", callback_data="week_prev"),
@@ -66,12 +81,13 @@ async def week_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
     group = get_user_group(user_id)
+    course = get_user_course(user_id)
     program = get_user_program(user_id)
     language = get_user_language(user_id)
-    if not group:
-        await query.edit_message_text("Сначала выберите группу, программу и язык в /settings.")
+    if not course or not group:
+        await query.edit_message_text("Сначала выберите курс и группу в /settings.")
         return
-    schedule_week = get_schedule_for_week(group, program=program, language=language)
+    schedule_week = get_schedule_for_week(group, course, program=program, language=language)
     day_index = context.user_data.get("week_day_index", 0)
     if query.data == "week_prev":
         day_index = max(0, day_index - 1)
@@ -79,9 +95,7 @@ async def week_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         day_index = min(5, day_index + 1)
     context.user_data["week_day_index"] = day_index
     day_name = DAY_NAMES[day_index]
-    current_week_type = get_current_week_type()
-    week_info = f"Текущая неделя: {'Верхняя' if current_week_type=='upper' else 'Нижняя'}\n"
-    text = f"{week_info}Расписание для группы {group}\n\n{day_name}:\n{schedule_week.get(day_index, 'На этот день нет занятий.')}"
+    text = f"Расписание для группы {group} (курс {course})\n\n{day_name}:\n{schedule_week.get(day_index, 'На этот день нет занятий.')}"
     keyboard = [
         [
             InlineKeyboardButton("← Пред.", callback_data="week_prev"),

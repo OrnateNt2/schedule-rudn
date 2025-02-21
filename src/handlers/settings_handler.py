@@ -1,16 +1,21 @@
-# src/handlers/settings_handler.py
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler
 from utils.json_db import (
-    set_user_group, set_user_notification_time,
-    set_user_program, set_user_language,
-    get_user_group, get_user_program, get_user_notification_time
+    set_user_group,
+    set_user_notification_time,
+    set_user_program,
+    set_user_language,
+    get_user_group,
+    get_user_program,
+    get_user_notification_time,
+    get_user_course,
+    set_user_course
 )
 from services.cache import get_all_groups, get_available_languages
 import math
 
 PROGRAM_OPTIONS = ["ФГОС", "МП"]
-NOTIFICATION_TIMES = ["07:00", "08:00", "09:00", "10:00", "20:00"]  # Добавляем 20:00 в список
+NOTIFICATION_TIMES = ["07:00", "08:00", "09:00", "10:00", "20:00"]
 GROUPS_PER_PAGE = 6  # Количество групп на странице
 
 def generate_group_keyboard(groups, current_page=0, current_group=None):
@@ -23,7 +28,7 @@ def generate_group_keyboard(groups, current_page=0, current_group=None):
     row = []
     for group in page_groups:
         button_text = f"✅ {group}" if group == current_group else group
-        row.append(InlineKeyboardButton(button_text, callback_data=f"group_select:{group}:{current_page}"))
+        row.append(InlineKeyboardButton(button_text, callback_data=f"set_group:{group}:{current_page}"))
         if len(row) == 2:
             keyboard.append(row)
             row = []
@@ -42,15 +47,19 @@ def generate_group_keyboard(groups, current_page=0, current_group=None):
 
 async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    current_course = get_user_course(user_id)
     current_group = get_user_group(user_id)
     current_program = get_user_program(user_id)
     current_time = get_user_notification_time(user_id)
     
-    groups = get_all_groups()
-    if not groups:
-        await update.message.reply_text("Не удалось загрузить группы из расписания.")
-        return
-
+    # Строка для выбора курса (1-6)
+    course_buttons = [
+        InlineKeyboardButton(text=("✅ " + c) if current_course == c else c, callback_data=f"set_course:{c}")
+        for c in ["1", "2", "3", "4", "5", "6"]
+    ]
+    
+    # Получаем список групп из расписания для выбранного курса, если установлен
+    groups = get_all_groups(current_course) if current_course else []
     group_keyboard = generate_group_keyboard(groups, current_page=0, current_group=current_group)
     
     time_buttons = [
@@ -63,46 +72,57 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     
     keyboard = [
+        [InlineKeyboardButton("Выберите курс:", callback_data="ignore")],
+        course_buttons,
         [InlineKeyboardButton("Выберите группу:", callback_data="ignore")],
         *group_keyboard.inline_keyboard,
         time_buttons,
         program_buttons,
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-
+    
     await update.message.reply_text(
-        "Настройки:\nВыберите группу, время оповещений и программу (ФГОС/МП):",
+        "Настройки:\nВыберите курс, группу, время оповещений и программу (ФГОС/МП):",
         reply_markup=reply_markup
     )
 
 async def settings_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-
-    data = query.data.split(":", 2)
+    data = query.data.split(":", 1)
     action = data[0]
+    value = data[1]
+    response = ""
     
-    if action == "group_select":
-        group = data[1]
-        current_page = int(data[2]) if len(data) > 2 else 0
+    if action == "set_group":
+        # Формат: set_group:{group}:{page}
+        parts = query.data.split(":")
+        group = parts[1]
         set_user_group(query.from_user.id, group)
         response = f"Группа установлена: {group}"
     elif action == "group_page":
-        new_page = int(data[1])
-        groups = get_all_groups()
+        new_page = int(value)
+        current_course = get_user_course(query.from_user.id)
+        groups = get_all_groups(current_course) if current_course else []
         current_group = get_user_group(query.from_user.id)
         group_keyboard = generate_group_keyboard(groups, current_page=new_page, current_group=current_group)
         current_program = get_user_program(query.from_user.id)
         current_time = get_user_notification_time(query.from_user.id)
-        time_buttons = [
-            InlineKeyboardButton(text=("✅ " + t) if current_time == t else t, callback_data=f"set_time:{t}")
-            for t in NOTIFICATION_TIMES
-        ]
         program_buttons = [
             InlineKeyboardButton(text=("✅ " + p) if current_program == p else p, callback_data=f"set_program:{p}")
             for p in PROGRAM_OPTIONS
         ]
+        time_buttons = [
+            InlineKeyboardButton(text=("✅ " + t) if current_time == t else t, callback_data=f"set_time:{t}")
+            for t in NOTIFICATION_TIMES
+        ]
+        course_buttons = [
+            InlineKeyboardButton(text=("✅ " + c) if get_user_course(query.from_user.id) == c else c, callback_data=f"set_course:{c}")
+            for c in ["1", "2", "3", "4", "5", "6"]
+        ]
         keyboard = [
+            [InlineKeyboardButton("Выберите курс:", callback_data="ignore")],
+            course_buttons,
             [InlineKeyboardButton("Выберите группу:", callback_data="ignore")],
             *group_keyboard.inline_keyboard,
             time_buttons,
@@ -112,16 +132,15 @@ async def settings_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_reply_markup(reply_markup=reply_markup)
         return
     elif action == "set_time":
-        value = data[1]
         set_user_notification_time(query.from_user.id, value)
         response = f"Время оповещений установлено: {value}"
     elif action == "set_program":
-        value = data[1]
         set_user_program(query.from_user.id, value)
         response = f"Программа установлена: {value}"
         group = get_user_group(query.from_user.id)
+        current_course = get_user_course(query.from_user.id)
         if group:
-            langs = get_available_languages(group, program=value)
+            langs = get_available_languages(group, current_course, program=value)
             if langs:
                 if len(langs) == 1:
                     set_user_language(query.from_user.id, langs[0])
@@ -135,14 +154,22 @@ async def settings_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 response += "\nДоступных вариантов языка не найдено."
     elif action == "set_language":
-        value = data[1]
         set_user_language(query.from_user.id, value)
         response = f"Язык установлен: {value}"
-
+    elif action == "set_course":
+        # Обработчик для выбора курса в настройках
+        set_user_course(query.from_user.id, value)
+        response = f"Курс установлен: {value}"
+    
+    # Перестраиваем клавиатуру с обновленными настройками
     user_id = query.from_user.id
-    current_group = get_user_group(user_id)
-    groups = get_all_groups()
-    group_keyboard = generate_group_keyboard(groups, current_page=0, current_group=current_group)
+    current_course = get_user_course(user_id)
+    course_buttons = [
+        InlineKeyboardButton(text=("✅ " + c) if current_course == c else c, callback_data=f"set_course:{c}")
+        for c in ["1", "2", "3", "4", "5", "6"]
+    ]
+    groups = get_all_groups(current_course) if current_course else []
+    group_keyboard = generate_group_keyboard(groups, current_page=0, current_group=get_user_group(user_id))
     current_program = get_user_program(user_id)
     current_time = get_user_notification_time(user_id)
     time_buttons = [
@@ -154,17 +181,18 @@ async def settings_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for p in PROGRAM_OPTIONS
     ]
     keyboard = [
+        [InlineKeyboardButton("Выберите курс:", callback_data="ignore")],
+        course_buttons,
         [InlineKeyboardButton("Выберите группу:", callback_data="ignore")],
         *group_keyboard.inline_keyboard,
         time_buttons,
         program_buttons,
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    
     await query.edit_message_text(response, reply_markup=reply_markup)
 
 settings_handler = CommandHandler("settings", settings_command)
 settings_callback_handler = CallbackQueryHandler(
     settings_callback,
-    pattern="^(group_select|group_page|set_time|set_program|set_language):"
+    pattern="^(set_group|group_page|set_time|set_program|set_language|set_course):"
 )
