@@ -3,7 +3,7 @@ import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler
 from utils.json_db import get_user_group, get_user_course, get_user_program, get_user_language
-from services.cache import get_schedule_for_day, get_schedule_for_week, get_next_week_type
+from services.cache import get_schedule_for_day, get_schedule_for_week, get_next_week_type, get_current_week_type
 
 DAY_NAMES = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"]
 
@@ -57,11 +57,20 @@ async def week_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not group:
         await update.message.reply_text("Сначала выберите группу и настройки в /settings.")
         return
-    schedule_week = get_schedule_for_week(group, course, program=program, language=language)
+
+    current_week_type = get_current_week_type()
+    week_label = "Верхняя" if current_week_type == "upper" else "Нижняя"
+    schedule_week = get_schedule_for_week(group, course, program=program, language=language, week_type=current_week_type)
+    
     context.user_data["week_day_index"] = 0
     day_index = context.user_data["week_day_index"]
     day_name = DAY_NAMES[day_index]
-    text = f"Расписание для группы {group} (курс {course}) на текущую неделю:\n\n{day_name}:\n{schedule_week.get(day_index, 'На этот день нет занятий.')}"
+    text = (
+        #f"Текущая неделя: {week_label}\n"
+        f"Расписание для группы {group} (курс {course}) на текущую неделю ({week_label}):\n\n"
+        f"{day_name}:\n{schedule_week.get(day_index, 'На этот день нет занятий.')}"
+    )
+    
     keyboard = [
         [
             InlineKeyboardButton("← Пред.", callback_data="week_prev"),
@@ -70,7 +79,6 @@ async def week_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(text, reply_markup=markup)
-
 async def nextweek_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Команда /nextweek показывает расписание, но для следующей недели (с противоположной четностью).
